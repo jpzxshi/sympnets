@@ -62,7 +62,6 @@ def plot(data, net):
         flow_true = data.solver.flow(data.X_test_np[0][:-1], data.h, data.test_num-1)
         flow_pred = net.predict(data.X_test[0][:-1], data.h, data.test_num-1, keepinitx=True, returnnp=True)
     else:
-        print(data.X_test_np[0].shape)
         flow_true = data.solver.flow(data.X_test_np[0], data.h, data.test_num-1)
         flow_pred = net.predict(data.X_test[0], data.test_num-1, keepinitx=True, returnnp=True)
         
