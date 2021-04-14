@@ -17,7 +17,7 @@ class TBData(ln.Data):
     '''
     def __init__(self, h, train_traj_num, test_traj_num, train_num, test_num, add_h=False):
         super(TBData, self).__init__()
-        self.solver = SV(None, self.dH, iterations=1, order=6, N=1)
+        self.solver = SV(None, self.dH, iterations=1, order=6, N=100)
         self.h = h
         self.train_traj_num = train_traj_num
         self.test_traj_num = test_traj_num
