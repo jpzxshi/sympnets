@@ -29,7 +29,7 @@ class PDData(ln.Data):
         X = self.solver.flow(np.array(x0), h, num)
         x, y = X[:-1], X[1:]
         if self.add_h:
-            x = np.hstack([x, self.h * np.ones([x.shape[0], 1])])
+            x = [x, self.h * np.ones([x.shape[0], 1])]
         return x, y
     
     def __init_data(self):
@@ -39,15 +39,17 @@ class PDData(ln.Data):
 def plot(data, net):
     steps = 1000
     if isinstance(net, ln.nn.HNN):
-        flow_true = data.solver.flow(data.X_test_np[0][:-1], data.h, steps)
-        flow_pred = net.predict(data.X_test[0][:-1], data.h, steps, keepinitx=True, returnnp=True)
+        flow_true = data.solver.flow(data.X_test_np[0][0], data.h, steps)
+        flow_pred = net.predict(data.X_test[0][0], data.h, steps, keepinitx=True, returnnp=True)
+        p, q = data.X_train_np[0][:, 0], data.X_train_np[0][:, 1]
     else:
         flow_true = data.solver.flow(data.X_test_np[0], data.h, steps)
         flow_pred = net.predict(data.X_test[0], steps, keepinitx=True, returnnp=True)
+        p, q = data.X_train_np[:, 0], data.X_train_np[:, 1]
     
     plt.plot(flow_true[:, 0], flow_true[:, 1], color='b', label='Ground truth', zorder=0)
     plt.plot(flow_pred[:, 0], flow_pred[:, 1], color='r', label='Predicted flow', zorder=1)
-    plt.scatter(data.X_train_np[:, 0], data.X_train_np[:, 1], color='b', label='Learned data', zorder=2)
+    plt.scatter(p, q, color='b', label='Learned data', zorder=2)
     plt.legend()
     plt.savefig('pendulum.pdf')
 
@@ -81,7 +83,7 @@ def main():
     elif net_type == 'G':
         net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
     elif net_type == 'HNN':
-        net = ln.nn.HNN(data.dim, Hlayers, Hwidth, Hactivation)
+        net = ln.nn.HNN([data.dim] + [Hwidth] * (Hlayers - 1) + [1], Hactivation)
     args = {
         'data': data,
         'net': net,

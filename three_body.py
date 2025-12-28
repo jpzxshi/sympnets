@@ -51,7 +51,7 @@ class TBData(ln.Data):
         X = self.solver.flow(np.array(x0), h, num)
         x, y = X[:,:-1], X[:,1:]
         if self.add_h:
-            x = np.concatenate([x, self.h * np.ones([x.shape[0], x.shape[1], 1])], axis = 2)
+            x = [x, self.h * np.ones([x.shape[0], x.shape[1], 1])]
         return x, y
     
     def rotate2d(self, p, theta):
@@ -98,19 +98,26 @@ class TBData(ln.Data):
     
     def __init_data(self):
         x0 = self.random_config(self.train_traj_num + self.test_traj_num)
-        X_train, y_train = self.__generate_flow(x0[:self.train_traj_num], self.h, self.train_num)
-        X_test, y_test = self.__generate_flow(x0[self.train_traj_num:], self.h, self.test_num)
-        self.X_train = X_train.reshape([self.train_num*self.train_traj_num, -1])
-        self.y_train = y_train.reshape([self.train_num*self.train_traj_num, -1])
-        self.X_test = X_test.reshape([self.test_num*self.test_traj_num, -1])
-        self.y_test = y_test.reshape([self.test_num*self.test_traj_num, -1])
+        self.X_train, self.y_train = self.__generate_flow(x0[:self.train_traj_num], self.h, self.train_num)
+        self.X_test, self.y_test = self.__generate_flow(x0[self.train_traj_num:], self.h, self.test_num)
+        
+        self.y_train = self.y_train.reshape([self.train_num*self.train_traj_num, -1])
+        self.y_test = self.y_test.reshape([self.test_num*self.test_traj_num, -1])
+        if self.add_h:
+            self.X_train = [self.X_train[0].reshape([self.train_num*self.train_traj_num, -1]), 
+                            self.X_train[1].reshape([self.train_num*self.train_traj_num, -1])]
+            self.X_test = [self.X_test[0].reshape([self.test_num*self.test_traj_num, -1]), 
+                           self.X_test[1].reshape([self.test_num*self.test_traj_num, -1])]
+        else:
+            self.X_train = self.X_train.reshape([self.train_num*self.train_traj_num, -1])
+            self.X_test = self.X_test.reshape([self.test_num*self.test_traj_num, -1])
         
 def plot(data, net):
     h_true = data.h / 10
     test_num_true = (data.test_num - 1) * 10
     if isinstance(net, ln.nn.HNN):
-        flow_true = data.solver.flow(data.X_test_np[0][:-1], h_true, test_num_true)
-        flow_pred = net.predict(data.X_test[0][:-1], data.h, data.test_num-1, keepinitx=True, returnnp=True)
+        flow_true = data.solver.flow(data.X_test_np[0][0], h_true, test_num_true)
+        flow_pred = net.predict(data.X_test[0][0], data.h, data.test_num-1, keepinitx=True, returnnp=True)
     else:
         flow_true = data.solver.flow(data.X_test_np[0], h_true, test_num_true)
         flow_pred = net.predict(data.X_test[0], data.test_num-1, keepinitx=True, returnnp=True)
@@ -134,7 +141,7 @@ def main():
     # net
     net_type = 'LA' # 'LA' or 'G' or 'HNN'
     LAlayers = 20
-    LAsublayers = 4
+    LAsublayers = 5
     Glayers = 20
     Gwidth = 50
     activation = 'sigmoid'
@@ -154,7 +161,7 @@ def main():
     elif net_type == 'G':
         net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
     elif net_type == 'HNN':
-        net = ln.nn.HNN(data.dim, Hlayers, Hwidth, Hactivation)
+        net = ln.nn.HNN([data.dim] + [Hwidth] * (Hlayers - 1) + [1], Hactivation)
     args = {
         'data': data,
         'net': net,

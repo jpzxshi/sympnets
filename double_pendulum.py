@@ -34,7 +34,7 @@ class DBData(ln.Data):
         X = self.solver.flow(np.array(x0), h, num)
         x, y = X[:-1], X[1:]
         if self.add_h:
-            x = np.hstack([x, self.h * np.ones([x.shape[0], 1])])
+            x = [x, self.h * np.ones([x.shape[0], 1])]
         return x, y
     
     def __init_data(self):
@@ -59,8 +59,8 @@ class DBData(ln.Data):
 def plot(data, net):
     t_test = np.arange(0, data.h*data.test_num, data.h)
     if isinstance(net, ln.nn.HNN):
-        flow_true = data.solver.flow(data.X_test_np[0][:-1], data.h, data.test_num-1)
-        flow_pred = net.predict(data.X_test[0][:-1], data.h, data.test_num-1, keepinitx=True, returnnp=True)
+        flow_true = data.solver.flow(data.X_test_np[0][0], data.h, data.test_num-1)
+        flow_pred = net.predict(data.X_test[0][0], data.h, data.test_num-1, keepinitx=True, returnnp=True)
     else:
         flow_true = data.solver.flow(data.X_test_np[0], data.h, data.test_num-1)
         flow_pred = net.predict(data.X_test[0], data.test_num-1, keepinitx=True, returnnp=True)
@@ -110,7 +110,7 @@ def main():
     elif net_type == 'G':
         net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
     elif net_type == 'HNN':
-        net = ln.nn.HNN(data.dim, Hlayers, Hwidth, Hactivation)
+        net = ln.nn.HNN([data.dim] + [Hwidth] * (Hlayers - 1) + [1], Hactivation)
     args = {
         'data': data,
         'net': net,

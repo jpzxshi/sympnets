@@ -3,9 +3,10 @@
 """
 import abc
 import torch
+from ..utils import map_elementwise
 
 class Module(torch.nn.Module):
-    '''Standard module format. 
+    '''Standard module format.
     '''
     def __init__(self):
         super(Module, self).__init__()
@@ -27,39 +28,37 @@ class Module(torch.nn.Module):
     def device(self, d):
         if d == 'cpu':
             self.cpu()
+            for module in self.modules():
+                if isinstance(module, Module):
+                    module.__device = torch.device('cpu')
         elif d == 'gpu':
             self.cuda()
+            for module in self.modules():
+                if isinstance(module, Module):
+                    module.__device = torch.device('cuda')
         else:
             raise ValueError
-        self.__device = d
     
-    @dtype.setter    
+    @dtype.setter
     def dtype(self, d):
         if d == 'float':
-            self.to(torch.float)
+            self.to(torch.float32)
+            for module in self.modules():
+                if isinstance(module, Module):
+                    module.__dtype = torch.float32
         elif d == 'double':
-            self.to(torch.double)
+            self.to(torch.float64)
+            for module in self.modules():
+                if isinstance(module, Module):
+                    module.__dtype = torch.float64
         else:
             raise ValueError
-        self.__dtype = d
-
-    @property
-    def Device(self):
-        if self.__device == 'cpu':
-            return torch.device('cpu')
-        elif self.__device == 'gpu':
-            return torch.device('cuda')
-        
-    @property
-    def Dtype(self):
-        if self.__dtype == 'float':
-            return torch.float32
-        elif self.__dtype == 'double':
-            return torch.float64
 
     @property
     def act(self):
-        if self.activation == 'sigmoid':
+        if callable(self.activation):
+            return self.activation
+        elif self.activation == 'sigmoid':
             return torch.sigmoid
         elif self.activation == 'relu':
             return torch.relu
@@ -69,22 +68,11 @@ class Module(torch.nn.Module):
             return torch.elu
         else:
             raise NotImplementedError
-    
-    @property        
-    def Act(self):
-        if self.activation == 'sigmoid':
-            return torch.nn.Sigmoid()
-        elif self.activation == 'relu':
-            return torch.nn.ReLU()
-        elif self.activation == 'tanh':
-            return torch.nn.Tanh()
-        elif self.activation == 'elu':
-            return torch.nn.ELU()
-        else:
-            raise NotImplementedError
 
     @property
     def weight_init_(self):
+        #if callable(self.initializer):
+        #    return self.initializer
         if self.initializer == 'He normal':
             return torch.nn.init.kaiming_normal_
         elif self.initializer == 'He uniform':
@@ -96,29 +84,50 @@ class Module(torch.nn.Module):
         elif self.initializer == 'orthogonal':
             return torch.nn.init.orthogonal_
         elif self.initializer == 'default':
-            if self.activation == 'relu':
-                return torch.nn.init.kaiming_normal_
-            elif self.activation == 'tanh':
-                return torch.nn.init.orthogonal_
-            else:
-                return lambda x: None
+            return lambda x: None
         else:
             raise NotImplementedError
             
-class StructureNN(Module):
+    @property
+    def bias_init_(self):
+        #if callable(self.initializer):
+        #    return self.initializer
+        if self.initializer == 'He normal':
+            return torch.nn.init.zeros_
+        elif self.initializer == 'He uniform':
+            return torch.nn.init.zeros_
+        elif self.initializer == 'Glorot normal':
+            return torch.nn.init.zeros_
+        elif self.initializer == 'Glorot uniform':
+            return torch.nn.init.zeros_
+        elif self.initializer == 'orthogonal':
+            return torch.nn.init.zeros_
+        elif self.initializer == 'default':
+            return lambda x: None
+        else:
+            raise NotImplementedError
+            
+    @map_elementwise
+    def _to_tensor(self, x):
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=self.dtype, device=self.device)
+        return x
+            
+class Map(Module):
     '''Structure-oriented neural network used as a general map based on designing architecture.
     '''
     def __init__(self):
-        super(StructureNN, self).__init__()
-        
+        super(Map, self).__init__()
+    
     def predict(self, x, returnnp=False):
+        x = self._to_tensor(x)
         return self(x).cpu().detach().numpy() if returnnp else self(x)
     
-class LossNN(Module, abc.ABC):
+class Algorithm(Module, abc.ABC):
     '''Loss-oriented neural network used as an algorithm based on designing loss.
     '''
     def __init__(self):
-        super(LossNN, self).__init__()
+        super(Algorithm, self).__init__()
         
     #@final
     def forward(self, x):

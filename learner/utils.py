@@ -3,7 +3,6 @@
 """
 from functools import wraps
 import time
-
 import numpy as np
 import torch
 
@@ -17,6 +16,36 @@ def timing(func):
         result = func(*args, **kwargs)
         print('\'' + func.__name__ + '\'' + ' took {} s'.format(time.time() - t))
         return result
+    return wrapper
+
+def str_current_time():
+    return time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
+
+def map_elementwise(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        container, idx = None, None
+        for arg in args:
+            if type(arg) in (list, tuple, dict):
+                container, idx = type(arg), arg.keys() if type(arg) == dict else len(arg)
+                break
+        if container is None:
+            for value in kwargs.values():
+                if type(value) in (list, tuple, dict):
+                    container, idx = type(value), value.keys() if type(value) == dict else len(value)
+                    break
+        if container is None:
+            return func(*args, **kwargs)
+        elif container in (list, tuple):
+            get = lambda element, i: element[i] if type(element) is container else element
+            return container(wrapper(*[get(arg, i) for arg in args], 
+                                     **{key:get(value, i) for key, value in kwargs.items()}) 
+                             for i in range(idx))
+        elif container is dict:
+            get = lambda element, key: element[key] if type(element) is dict else element
+            return {key:wrapper(*[get(arg, key) for arg in args], 
+                                **{key_:get(value_, key) for key_, value_ in kwargs.items()}) 
+                    for key in idx}
     return wrapper
 
 class lazy_property:
@@ -38,6 +67,9 @@ def softmax(x):
 #
 # Torch tools.
 #
+def mse(x, y):
+    return torch.nn.MSELoss()(x, y)
+
 def cross_entropy_loss(y_pred, y_label):
     if y_pred.size() == y_label.size():
         return torch.mean(-torch.sum(torch.log_softmax(y_pred, dim=-1) * y_label, dim=-1))
