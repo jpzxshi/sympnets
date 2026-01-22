@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import learner as ln
 from learner.integrator.hamiltonian import SV
+np.random.seed(0)
 
 class TBData(ln.Data):
     '''Data for learning the three body system.
